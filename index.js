@@ -97,9 +97,9 @@ app.post("/cart", async (req, res) => {
     cartData.forEach((item, index) => {
       const itemTotal = item.price * item.qty;
       totalSum += itemTotal;
-      message += `${index + 1}. ${item.title} — кількість: ${
-        item.quantity
-      }, ціна: ${item.price} грн, разом: ${itemTotal} грн\n`;
+      message += `${index + 1}. ${item.title} — кількість: ${item.qty}, ціна: ${
+        item.price
+      } грн, разом: ${itemTotal} грн\n`;
     });
 
     message += `\n💰 <b>Сума до сплати:</b> ${totalSum} грн`;
