@@ -80,6 +80,70 @@ app.post("/send-message", async (req, res) => {
   }
 });
 
+app.post("/cart", async (req, res) => {
+  const cartData = req.body;
+
+  if (!Array.isArray(cartData) || cartData.length === 0) {
+    return res
+      .status(400)
+      .json({ error: "Очікується непорожній масив об'єктів" });
+  }
+
+  // Функція форматування тексту для Telegram
+  function formatCartMessage(cartData) {
+    let message = "📦 Зберіть замовлення:\n\n";
+
+    let totalSum = 0;
+
+    cartData.forEach((item, index) => {
+      const itemTotal = item.price * item.quantity;
+      totalSum += itemTotal;
+      message += `${index + 1}. ${item.name} — кількість: ${
+        item.quantity
+      }, ціна: ${item.price} грн, разом: ${itemTotal} грн\n`;
+    });
+
+    message += `\n💰 Сума до сплати: ${totalSum} грн`;
+
+    return message;
+  }
+
+  const textForTelegram = formatCartMessage(cartData);
+
+  try {
+    // Відправка в Telegram
+    await sendToTelegram(textForTelegram);
+
+    // Запис у Google Sheets
+    const sheets = await getSheetsClient();
+    const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+
+    // Формуємо масив рядків для запису (кожен товар — свій рядок з датою)
+    const values = cartData.map((item) => [
+      new Date().toISOString(),
+      item.name,
+      item.price,
+      item.quantity,
+      item.price * item.quantity,
+    ]);
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "Лист2", // Вказати правильний лист і діапазон
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Дані кошика надіслано в Telegram і записано у Google Таблицю",
+    });
+  } catch (error) {
+    console.error("Помилка при обробці /cart:", error);
+    res.status(500).json({ error: "Не вдалося обробити кошик" });
+  }
+});
+
 // Відхиляє всі інші типи запитів
 app.all("*", (req, res) => {
   res
