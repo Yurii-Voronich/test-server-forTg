@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { getSheetsClient } from "./googleSheets.js";
 
 dotenv.config(); // Зчитує змінні з .env
 
@@ -34,6 +35,11 @@ const sendToTelegram = async (text) => {
 };
 
 // Приймає тільки POST-запити на /send-message
+
+//
+
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+
 app.post("/send-message", async (req, res) => {
   const { name, email, message, dataid } = req.body;
 
@@ -50,12 +56,27 @@ app.post("/send-message", async (req, res) => {
 
   try {
     await sendToTelegram(text);
-    res
-      .status(200)
-      .json({ success: true, message: "Повідомлення надіслано в Telegram!" });
+
+    // Запис у Google Таблицю
+    const sheets = await getSheetsClient();
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "Лист1", // або "Лист1!A1", залежно від назви листа
+      valueInputOption: "USER_ENTERED",
+      requestBody: {
+        values: [
+          [new Date().toISOString(), dataid, name, email, message || "—"],
+        ],
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Надіслано в Telegram і записано у Google Таблицю!",
+    });
   } catch (error) {
-    console.error("Telegram error:", error.message);
-    res.status(500).json({ error: "Не вдалося надіслати повідомлення" });
+    console.error("Telegram/Sheets error:", error.message);
+    res.status(500).json({ error: "Не вдалося обробити запит" });
   }
 });
 
