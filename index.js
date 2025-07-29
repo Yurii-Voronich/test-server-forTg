@@ -83,16 +83,15 @@ app.post("/send-message", async (req, res) => {
 app.post("/cart", async (req, res) => {
   const cartData = req.body;
 
-  if (!Array.isArray(cartData) || cartData.length === 0) {
-    return res
-      .status(400)
-      .json({ error: "Очікується непорожній масив об'єктів" });
-  }
+  // 👉 Генеруємо ID
+  const generateOrderId = () => {
+    return `ID-${Date.now().toString().slice(-6)}`;
+  };
+  const orderId = generateOrderId();
 
-  // Функція форматування тексту для Telegram
-  function formatCartMessage(cartData) {
-    let message = "📦 Зберіть замовлення:\n\n";
-
+  // 👉 Форматуємо текст для Telegram
+  function formatCartMessage(cartData, orderId) {
+    let message = `📦 <b>Замовлення ${orderId}</b>:\n\n`;
     let totalSum = 0;
 
     cartData.forEach((item, index) => {
@@ -103,45 +102,49 @@ app.post("/cart", async (req, res) => {
       }, ціна: ${item.price} грн, разом: ${itemTotal} грн\n`;
     });
 
-    message += `\n💰 Сума до сплати: ${totalSum} грн`;
+    message += `\n💰 <b>Сума до сплати:</b> ${totalSum} грн`;
 
     return message;
   }
 
-  const textForTelegram = formatCartMessage(cartData);
+  const textForTelegram = formatCartMessage(cartData, orderId);
 
+  // 👉 Відправка в Telegram
   try {
-    // Відправка в Telegram
     await sendToTelegram(textForTelegram);
-
-    // Запис у Google Sheets
-    const sheets = await getSheetsClient();
-    const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-
-    // Формуємо масив рядків для запису (кожен товар — свій рядок з датою)
-    const values = cartData.map((item) => [
-      new Date().toISOString(),
-      item.name,
-      item.price,
-      item.quantity,
-      item.price * item.quantity,
-    ]);
-
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "Лист2", // Вказати правильний лист і діапазон
-      valueInputOption: "USER_ENTERED",
-      requestBody: { values },
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Дані кошика надіслано в Telegram і записано у Google Таблицю",
-    });
   } catch (error) {
-    console.error("Помилка при обробці /cart:", error);
-    res.status(500).json({ error: "Не вдалося обробити кошик" });
+    console.error("Telegram error:", error.message);
   }
+
+  // 👉 Підготовка даних для таблиці
+  const formatCartSummary = (cart) => {
+    let total = 0;
+    const itemsText = cart.map((item) => {
+      const sum = item.price * item.quantity;
+      total += sum;
+      return `${item.name} x${item.quantity} — ${sum} грн`;
+    });
+
+    return {
+      summaryText: itemsText.join("; "),
+      total,
+    };
+  };
+
+  const { summaryText, total } = formatCartSummary(cartData);
+  const date = new Date().toISOString().split("T")[0];
+
+  const sheets = await getSheetsClient();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: "Лист2",
+    valueInputOption: "USER_ENTERED",
+    requestBody: {
+      values: [[orderId, date, summaryText, total]],
+    },
+  });
+
+  res.status(200).json({ message: "Замовлення надіслано", orderId });
 });
 
 // Відхиляє всі інші типи запитів
