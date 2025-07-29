@@ -82,7 +82,7 @@ app.post("/send-message", async (req, res) => {
 
 app.post("/cart", async (req, res) => {
   const cartData = req.body;
-
+  console.log(cartData);
   // 👉 Генеруємо ID
   const generateOrderId = () => {
     return `ID-${Date.now().toString().slice(-6)}`;
@@ -95,9 +95,9 @@ app.post("/cart", async (req, res) => {
     let totalSum = 0;
 
     cartData.forEach((item, index) => {
-      const itemTotal = item.price * item.quantity;
+      const itemTotal = item.price * item.qty;
       totalSum += itemTotal;
-      message += `${index + 1}. ${item.name} — кількість: ${
+      message += `${index + 1}. ${item.title} — кількість: ${
         item.quantity
       }, ціна: ${item.price} грн, разом: ${itemTotal} грн\n`;
     });
@@ -120,9 +120,9 @@ app.post("/cart", async (req, res) => {
   const formatCartSummary = (cart) => {
     let total = 0;
     const itemsText = cart.map((item) => {
-      const sum = item.price * item.quantity;
+      const sum = item.price * item.qty;
       total += sum;
-      return `${item.name} x${item.quantity} — ${sum} грн`;
+      return `${item.title} x${item.qty} — ${sum} грн`;
     });
 
     return {
