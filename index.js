@@ -35,14 +35,14 @@ const sendToTelegram = async (text) => {
 
 // Приймає тільки POST-запити на /send-message
 app.post("/send-message", async (req, res) => {
-  const { name, email, message } = req.body;
+  const { name, email, message, dataid } = req.body;
 
-  if (!name || !email || !message) {
-    return res.status(400).json({ error: "Всі поля обовʼязкові" });
+  if (!name || !email) {
+    return res.status(400).json({ error: "поля ім'я та email обовʼязкові" });
   }
 
   const text = `
-<b>📩 Заявка з форми:</b>
+<b>📩 Івент ${dataid}:</b>
 👤 <b>Імʼя:</b> ${name}
 📧 <b>Email:</b> ${email}
 💬 <b>Повідомлення:</b> ${message}
